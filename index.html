@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Potenciarte Networking</title>
+    <link rel="icon" type="image/png" href="img/favicon.png">
+
+    <!-- 1. Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        potenciarte: {
+                            primary: '#F97316', // Naranja
+                            dark: '#1F2937',    // Gris Oscuro
+                            light: '#F3F4F6',   // Gris Claro
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- 2. React CDN -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    
+    <!-- 3. ReactDOM CDN (Depende de React) -->
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+    <!-- 4. Lucide-React Icons CDN (ELIMINADO PARA ESTABILIDAD) -->
+    <!-- <script src="https://unpkg.com/lucide-react@latest/dist/umd/lucide-react.js"></script> -->
+
+    <!-- 5. Babel Standalone CDN (para transpilar JSX) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Estilos base para la simulación mobile-first -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #e5e7eb; /* bg-gray-200 */
+        }
+        /* Clases personalizadas para la animación de swipe */
+        .card-entering {
+            animation: scale-in 0.3s ease-out;
+        }
+        .card-swiping-right {
+            transform: translateX(120%) rotate(15deg) !important;
+            transition: transform 0.4s ease-in;
+        }
+        .card-swiping-left {
+            transform: translateX(-120%) rotate(-15deg) !important;
+            transition: transform 0.4s ease-in;
+        }
+        @keyframes scale-in {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+    </style>
+</head>
+<body>
+    
+    <!-- Contenedor raíz para la app React -->
+    <div id="root"></div>
+
+    <!-- Script de la aplicación React (JSX) -->
+    <script type="text/babel">
+      
+        const { useState, useEffect, createContext, useContext, useMemo } = React;
+        const { createRoot } = ReactDOM;
+
+        // --- Contexto Global de la App ---
+        const AppContext = createContext();
+
+        const AppProvider = ({ children }) => {
+            // --- ESTADO PRINCIPAL ---
+            const [view, setView] = useState('login'); 
+            const [appView, setAppView] = useState('networking');
+            const [isLoading, setIsLoading] = useState(false);
+            const [errorMessage, setErrorMessage] = useState(null);
+            const [currentUser, setCurrentUser] = useState(MOCK_USERS[0]);
+            const [profilesStack, setProfilesStack] = useState(MOCK_USERS.slice(1));
+            const [likes, setLikes] = useState(new Set());
+            const [matches, setMatches] = useState([]);
+            const [chattingWithUser, setChattingWithUser] = useState(null);
+            const [messages, setMessages] = useState({});
+            const [newMatchCount, setNewMatchCount] = useState(0);
+            const [showMatchModal, setShowMatchModal] = useState(null);
+
+            // --- MANEJADORES DE ACCIONES ---
+
+            const handleLogin = (email, password) => {
+                setIsLoading(true);
+                setErrorMessage(null);
+                
+                setTimeout(() => {
+                    if (email === 'networking@potenciarte.cl' && password === 'pass123') {
+                        setView('payment');
+                    } else {
+                        setErrorMessage('Credenciales incorrectas. Inténtalo de nuevo.');
+                    }
+                    setIsLoading(false);
+                }, 1000);
+            };
+
+            const handlePayment = () => {
+                setIsLoading(true);
+                
+                setTimeout(() => {
+                    setView('app');
+                    setIsLoading(false);
+                }, 1500);
+            };
+
+            const handleSwipe = (swipedUser, direction) => {
+                setProfilesStack(prevStack => prevStack.filter(p => p.id !== swipedUser.id));
+
+                if (direction === 'like') {
+                    const newLikes = new Set(likes);
+                    newLikes.add(swipedUser.id);
+                    setLikes(newLikes);
+
+                    const isMutualMatch = ['u2', 'u4'].includes(swipedUser.id);
+                    
+                    if (isMutualMatch) {
+                        setMatches(prevMatches => [...prevMatches, swipedUser]);
+                        setNewMatchCount(prevCount => prevCount + 1);
+                        setShowMatchModal(swipedUser);
+                    }
+                }
+            };
+
+            const handleViewChat = (user) => {
+                setChattingWithUser(user);
+                setAppView('chat');
+                if (appView === 'matches') {
+                    setNewMatchCount(0);
+                }
+            };
+
+            const handleBackFromChat = () => {
+                setChattingWithUser(null);
+                setAppView('matches');
+            };
+            
+            const handleSendMessage = (text) => {
+                if (!text.trim() || !chattingWithUser) return;
+                
+                const partnerId = chattingWithUser.id;
+                const newMessage = {
+                    id: `msg-${Date.now()}`,
+                    sender: currentUser.id,
+                    text: text.trim(),
+                    timestamp: new Date().toISOString()
+                };
+
+                setMessages(prevMessages => {
+                    const oldMessages = prevMessages[partnerId] || [];
+                    return {
+                        ...prevMessages,
+                        [partnerId]: [...oldMessages, newMessage]
+                    };
+                });
+            };
+
+            const handleEndEvent = () => {
+                setView('event-end');
+            };
+
+            const handleCloseMatchModal = () => {
+                setShowMatchModal(null);
+            };
+
+            const handleGoToChatFromModal = () => {
+                const user = showMatchModal;
+                setShowMatchModal(null);
+                handleViewChat(user);
+            };
+
+            // --- Valor del Contexto ---
+            const value = {
+                view, setView,
+                appView, setAppView,
+                isLoading, setIsLoading,
+                errorMessage, setErrorMessage,
+                currentUser,
+                profilesStack,
+                matches,
+                newMatchCount,
+                showMatchModal,
+                messages,
+                chattingWithUser,
+                handleLogin,
+                handlePayment,
+                handleSwipe,
+                handleViewChat,
+                handleBackFromChat,
+                handleSendMessage,
+                handleEndEvent,
+                handleCloseMatchModal,
+                handleGoToChatFromModal,
+            };
+
+            return (
+                <AppContext.Provider value={value}>
+                    {children}
+                </AppContext.Provider>
+            );
+        };
+
+        // --- Iconos de Lucide ELIMINADOS ---
+        // const { 
+        //     Users, MessageCircle, X, Heart, Send, ArrowLeft, CalendarOff, Mail, Lock, Loader2, CheckCircle, Ticket
+        // } = LucideReact;
+
+        // --- Datos de Prueba (Mock Data) ---
+        const MOCK_USERS = [
+            {
+                id: 'u1',
+                name: 'Usuario Demo',
+                jobTitle: 'Asistente al Evento',
+                company: 'Tu Empresa',
+                bio: 'Buscando conectar con profesionales del sector.',
+                profilePic: 'https://placehold.co/400x400/F97316/FFFFFF?text=T%C3%9A'
+            },
+            {
+                id: 'u2',
+                name: 'Ana González',
+                jobTitle: 'Directora de Marketing',
+                company: 'Tech Solutions',
+                bio: 'Especialista en estrategias digitales y crecimiento. Abierta a colaborar en proyectos innovadores.',
+                profilePic: 'https://placehold.co/400x400/6366F1/FFFFFF?text=AG'
+            },
+            {
+                id: 'u3',
+                name: 'Carlos Vera',
+                jobTitle: 'Desarrollador Full-Stack',
+                company: 'DevCore',
+                bio: 'Apasionado por React y Node.js. Busco oportunidades de freelance.',
+                profilePic: 'https://placehold.co/400x400/10B981/FFFFFF?text=CV'
+            },
+            {
+                id: 'u4',
+                name: 'Sofía Martínez',
+                jobTitle: 'Diseñadora UX/UI',
+                company: 'PixelPerfect',
+                bio: 'Creando experiencias de usuario intuitivas y memorables. Tomemos un café virtual.',
+                profilePic: 'https://placehold.co/400x400/EC4899/FFFFFF?text=SM'
+            },
+            {
+                id: 'u5',
+                name: 'Javier Torres',
+                jobTitle: 'CEO y Fundador',
+                company: 'Startup Rápida',
+                bio: 'En busca de inversores ángeles y talento para mi próxima gran idea.',
+                profilePic: 'https://placehold.co/400x400/06B6D4/FFFFFF?text=JT'
+            },
+            {
+                id: 'u6',
+                name: 'Lucía Fernández',
+                jobTitle: 'Analista de Datos',
+                company: 'Data Insights',
+                bio: 'Transformando datos en decisiones de negocio. Me encanta el machine learning.',
+                profilePic: 'https://placehold.co/400x400/F59E0B/FFFFFF?text=LF'
+            }
+        ];
+
+        // --- Componente: Icono con Badge ---
+        const IconWithBadge = ({ children, count }) => (
+            <div className="relative">
+                <span className="text-3xl">{children}</span> {/* Ajustado para Emoji */}
+                {count > 0 && (
+                    <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                        {count}
+                    </span>
+                )}
+            </div>
+        );
+        
+        // --- Componente: Botón Giratorio de Carga ---
+        // Reemplazado por texto simple para evitar dependencias
+        const LoadingSpinner = () => (
+            <span className="animate-pulse">Cargando...</span>
+        );
+
+        // --- PANTALLA 1: LOGIN ---
+        const LoginScreen = () => {
+            const { handleLogin, isLoading, errorMessage } = useContext(AppContext);
+            const [email, setEmail] = useState('networking@potenciarte.cl');
+            const [password, setPassword] = useState('pass123');
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                handleLogin(email, password);
+            };
+
+            return (
+                <div className="flex flex-col items-center justify-center h-full p-8 bg-potenciarte-dark text-white">
+                    <img src="img/logo.png" alt="Logo Potenciarte" className="w-48 mb-8" 
+                         onError={(e) => { e.target.onerror = null; e.target.src='https://placehold.co/300x100/1F2937/FFFFFF?text=Potenciarte+Logo'; }} />
+                    <h1 className="text-3xl font-bold mb-4">Networking App</h1>
+                    <p className="text-gray-300 mb-8">Accede para conectar</p>
+
+                    <form onSubmit={handleSubmit} className="w-full max-w-sm">
+                        <div className="mb-4 relative">
+                            {/* Icono eliminado <Mail ... /> */}
+                            <input
+                                type="email"
+                                placeholder="Email (networking@potenciarte.cl)"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-potenciarte-primary"
+                                required
+                            />
+                        </div>
+                        <div className="mb-6 relative">
+                            {/* Icono eliminado <Lock ... /> */}
+                            <input
+                                type="password"
+                                placeholder="Contraseña (pass123)"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-potenciarte-primary"
+                                required
+                            />
+                        </div>
+
+                        {errorMessage && (
+                            <p className="text-red-400 text-center mb-4">{errorMessage}</p>
+                        )}
+
+                        <button
+                            type="submit"
+                            disabled={isLoading}
+                            className="w-full bg-potenciarte-primary text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-orange-600 transition duration-300 flex items-center justify-center disabled:bg-orange-400 disabled:cursor-not-allowed"
+                        >
+                            {isLoading ? <LoadingSpinner /> : 'Ingresar'}
+                        </button>
+                    </form>
+                </div>
+            );
+        };
+
+        // --- PANTALLA 2: PAGO SIMULADO ---
+        const PaymentScreen = () => {
+            const { handlePayment, isLoading } = useContext(AppContext);
+
+            return (
+                <div className="flex flex-col items-center justify-between h-full p-8 bg-white">
+                    <div className="text-center w-full">
+                        {/* Icono reemplazado por emoji */}
+                        <span className="text-6xl mb-4 inline-block">&#x1F3AB;</span> {/* 🎟️ */}
+                        <h1 className="text-3xl font-bold text-potenciarte-dark mb-2">Evento INAD</h1>
+                        <p className="text-lg text-gray-600 mb-8">Confirma tu entrada</p>
+
+                        <div className="bg-potenciarte-light p-6 rounded-lg text-left shadow-inner">
+                            <h2 className="text-2xl font-semibold text-potenciarte-dark mb-4">Total a Pagar: $25.000 CLP</h2>
+                            <ul className="space-y-3">
+                                <li className="flex items-center text-gray-700">
+                                    {/* Icono reemplazado por emoji */}
+                                    <span className="mr-3">&#x2705;</span> {/* ✅ */}
+                                    Acceso completo al evento
+                                </li>
+                                <li className="flex items-center text-gray-700">
+                                    <span className="mr-3">&#x2705;</span> {/* ✅ */}
+                                    Acceso a la App de Networking
+                                </li>
+                                <li className="flex items-center text-gray-700">
+                                    <span className="mr-3">&#x2705;</span> {/* ✅ */}
+                                    Acceso a charlas y talleres
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={handlePayment}
+                        disabled={isLoading}
+                        className="w-full bg-potenciarte-primary text-white font-bold py-4 px-6 rounded-lg shadow-lg hover:bg-orange-600 transition duration-300 flex items-center justify-center text-lg disabled:bg-orange-400 disabled:cursor-not-allowed mt-8"
+                    >
+                        {isLoading ? (
+                            <>
+                                <LoadingSpinner />
+                                {/* <span className="ml-2">Procesando pago...</span> */}
+                            </>
+                        ) : (
+                            'Pagar y Acceder a la App'
+                        )}
+                    </button>
+                </div>
+            );
+        };
+
+        // --- PANTALLA 3: APLICACIÓN PRINCIPAL ---
+
+        // --- Header de la App ---
+        const AppHeader = () => {
+            const { handleEndEvent } = useContext(AppContext);
+
+            return (
+                <header className="flex items-center justify-between p-4 bg-white border-b border-gray-200">
+                    <img src="img/logo.png" alt="Logo Potenciarte" className="h-8" 
+                         onError={(e) => { e.target.onerror = null; e.target.src='https://placehold.co/150x40/FFFFFF/1F2937?text=Potenciarte'; }} />
+                    <button 
+                        onClick={handleEndEvent} 
+                        title="Simular Fin de Evento"
+                        className="text-gray-500 hover:text-red-500 transition-colors px-2 py-1 rounded hover:bg-red-100"
+                    >
+                        {/* Icono reemplazado por texto */}
+                        <span className="text-sm font-medium">[ Finalizar Evento ]</span>
+                    </button>
+                </header>
+            );
+        };
+
+        // --- Navegación Inferior de la App ---
+        const AppNavBar = () => {
+            const { appView, setAppView, newMatchCount } = useContext(AppContext);
+
+            const NavButton = ({ view, label, icon, hasBadge = false }) => {
+                const isActive = appView === view;
+                return (
+                    <button
+                        onClick={() => setAppView(view)}
+                        className={`flex flex-col items-center justify-center w-full p-3 transition-colors ${
+                            isActive ? 'text-potenciarte-primary' : 'text-gray-500 hover:text-potenciarte-primary'
+                        }`}
+                    >
+                        {hasBadge ? (
+                            <IconWithBadge count={newMatchCount}>{icon}</IconWithBadge>
+                        ) : (
+                            <span className="text-3xl">{icon}</span>
+                        )}
+                        <span className="text-xs font-medium mt-1">{label}</span>
+                    </button>
+                );
+            };
+
+            return (
+                <nav className="flex items-center justify-around bg-white border-t border-gray-200 shadow-inner">
+                    <NavButton view="networking" icon={<span>&#x1F46A;</span>} label="Networking" /> {/* 👥 */}
+                    <NavButton view="matches" icon={<span>&#x1F4AC;</span>} label="Matches" hasBadge={true} /> {/* 💬 */}
+                </nav>
+            );
+        };
+
+        // --- Vista A: Networking (Tinder) ---
+        const NetworkingView = () => {
+            const { profilesStack, handleSwipe } = useContext(AppContext);
+            const [swipingDirection, setSwipingDirection] = useState(null);
+            
+            const currentProfile = profilesStack[0];
+            
+            const onSwipe = (direction) => {
+                if (swipingDirection || !currentProfile) return;
+                setSwipingDirection(direction);
+                
+                setTimeout(() => {
+                    handleSwipe(currentProfile, direction);
+                    setSwipingDirection(null);
+                }, 400);
+            };
+
+            if (!currentProfile) {
+                return (
+                    <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-potenciarte-light">
+                        {/* Icono reemplazado por emoji */}
+                        <span className="text-6xl mb-4">&#x1F46A;</span> {/* 👥 */}
+                        <h2 className="text-2xl font-bold text-potenciarte-dark mb-2">¡Eso es todo por ahora!</h2>
+                        <p className="text-gray-600">Has visto todos los perfiles disponibles. Vuelve más tarde para ver nuevos asistentes.</p>
+                    </div>
+                );
+            }
+
+            let cardClasses = "absolute inset-0 transition-transform duration-400 ease-in-out card-entering";
+            if (swipingDirection === 'right') cardClasses += ' card-swiping-right';
+            if (swipingDirection === 'left') cardClasses += ' card-swiping-left';
+            
+            return (
+                <div className="flex flex-col h-full bg-potenciarte-light p-4 overflow-hidden">
+                    <div className="relative flex-grow">
+                        {profilesStack.slice(0, 2).reverse().map((profile, index) => {
+                            const isTopCard = index === (profilesStack.length > 1 ? 1 : 0);
+                            return (
+                                <div
+                                    key={profile.id}
+                                    className={`absolute inset-0 bg-white rounded-2xl shadow-xl overflow-hidden ${
+                                        isTopCard ? (swipingDirection ? cardClasses : 'card-entering') : 'opacity-80 scale-95'
+                                    }`}
+                                >
+                                    <img 
+                                        src={profile.profilePic} 
+                                        alt={profile.name} 
+                                        className="w-full h-3/5 object-cover" 
+                                    />
+                                    <div className="p-5">
+                                        <h2 className="text-2xl font-bold text-potenciarte-dark">{profile.name}</h2>
+                                        <p className="text-potenciarte-primary font-semibold text-lg">{profile.jobTitle}</p>
+                                        <p className="text-gray-500 mb-3">{profile.company}</p>
+                                        <p className="text-gray-700 text-sm leading-relaxed">{profile.bio}</p>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    
+                    <div className="flex-shrink-0 flex items-center justify-center space-x-12 pt-6">
+                        <button 
+                            onClick={() => onSwipe('left')}
+                            disabled={!!swipingDirection}
+                            className="w-20 h-20 bg-white rounded-full shadow-lg flex items-center justify-center text-red-500 hover:scale-110 transition-transform"
+                        >
+                            {/* Icono reemplazado por emoji */}
+                            <span className="text-4xl">&#x274C;</span> {/* ❌ */}
+                        </button>
+                        <button 
+                            onClick={() => onSwipe('right')}
+                            disabled={!!swipingDirection}
+                            className="w-20 h-20 bg-white rounded-full shadow-lg flex items-center justify-center text-green-500 hover:scale-110 transition-transform"
+                        >
+                            {/* Icono reemplazado por emoji */}
+                            <span className="text-4xl">&#x2764;&#xFE0F;</span> {/* ❤️ */}
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Vista B: Matches (Lista) ---
+        const MatchesView = () => {
+            const { matches, handleViewChat } = useContext(AppContext);
+
+            if (matches.length === 0) {
+                return (
+                    <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-potenciarte-light">
+                        {/* Icono reemplazado por emoji */}
+                        <span className="text-6xl mb-4">&#x1F4AC;</span> {/* 💬 */}
+                        <h2 className="text-2xl font-bold text-potenciarte-dark mb-2">Aún no tienes matches</h2>
+                        <p className="text-gray-600">Sigue explorando en la pestaña "Networking" para encontrar conexiones.</p>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="flex flex-col h-full bg-potenciarte-light">
+                    <div className="p-4 border-b bg-white">
+                        <h1 className="text-2xl font-bold text-potenciarte-dark">Tus Matches</h1>
+                        <p className="text-gray-600">¡Comienza una conversación!</p>
+                    </div>
+                    <ul className="flex-grow overflow-y-auto divide-y divide-gray-200">
+                        {matches.map(user => (
+                            <li 
+                                key={user.id} 
+                                onClick={() => handleViewChat(user)}
+                                className="flex items-center p-4 bg-white hover:bg-gray-50 transition-colors cursor-pointer"
+                            >
+                                <img src={user.profilePic} alt={user.name} className="w-14 h-14 rounded-full object-cover mr-4" />
+                                <div className="flex-grow">
+                                    <h3 className="text-lg font-semibold text-potenciarte-dark">{user.name}</h3>
+                                    <p className="text-gray-600 text-sm">{user.jobTitle}</p>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            );
+        };
+
+        // --- Vista C: Chat ---
+        const ChatView = () => {
+            const { chattingWithUser, currentUser, messages, handleBackFromChat, handleSendMessage } = useContext(AppContext);
+            const [newMessage, setNewMessage] = useState('');
+            const chatEndRef = React.useRef(null);
+
+            const userMessages = messages[chattingWithUser.id] || [];
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                handleSendMessage(newMessage);
+                setNewMessage('');
+            };
+
+            useEffect(() => {
+                chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, [userMessages]);
+
+            return (
+                <div className="flex flex-col h-full bg-potenciarte-light">
+                    <header className="flex-shrink-0 flex items-center p-4 bg-white border-b border-gray-200 shadow-sm">
+                        <button onClick={handleBackFromChat} className="text-potenciarte-primary mr-3 p-2 rounded-full hover:bg-orange-100">
+                            {/* Icono reemplazado por texto */}
+                            <span className="text-2xl font-bold">&larr;</span>
+                        </button>
+                        <img src={chattingWithUser.profilePic} alt={chattingWithUser.name} className="w-10 h-10 rounded-full object-cover mr-3" />
+                        <div>
+                            <h2 className="text-lg font-bold text-potenciarte-dark">{chattingWithUser.name}</h2>
+                            <p className="text-sm text-gray-500">En línea</p>
+                        </div>
+                    </header>
+                    
+                    <div className="flex-grow overflow-y-auto p-4 space-y-4">
+                        {userMessages.map(msg => {
+                            const isMe = msg.sender === currentUser.id;
+                            return (
+                                <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                    <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl shadow ${
+                                        isMe 
+                                        ? 'bg-potenciarte-primary text-white rounded-br-lg' 
+                                        : 'bg-white text-potenciarte-dark rounded-bl-lg'
+                                    }`}>
+                                        <p>{msg.text}</p>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        <div ref={chatEndRef} />
+                    </div>
+
+                    <form onSubmit={handleSubmit} className="flex-shrink-0 flex items-center p-3 bg-white border-t border-gray-200">
+                        <input
+                            type="text"
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            placeholder="Escribe un mensaje..."
+                            className="flex-grow p-3 bg-gray-100 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-potenciarte-primary"
+                        />
+                        <button type="submit" className="ml-3 p-3 bg-potenciarte-primary text-white rounded-full hover:bg-orange-600 transition-colors">
+                            {/* Icono reemplazado por texto */}
+                            <span className="text-xl font-bold">&rarr;</span>
+                        </button>
+                    </form>
+                </div>
+            );
+        };
+
+        // --- PANTALLA 4: FIN DEL EVENTO ---
+        const EventEndScreen = () => {
+            return (
+                <div className="flex flex-col items-center justify-center h-full text-center p-10 bg-white">
+                    {/* Icono reemplazado por emoji */}
+                    <span className="text-7xl mb-6">&#x1F4C5;</span> {/* 🗓️ */}
+                    <h1 className="text-4xl font-bold text-potenciarte-dark mb-4">¡El evento ha finalizado!</h1>
+                    <p className="text-lg text-gray-600 leading-relaxed">
+                        Gracias por participar en el Evento INAD y usar la app de networking de Potenciarte.
+                    </p>
+                    <p className="text-lg text-gray-600 leading-relaxed mt-4">
+                        Por motivos de privacidad y según nuestros términos de servicio, todos los chats y matches han sido eliminados permanentemente.
+                    </p>
+                    <p className="text-lg text-gray-600 leading-relaxed mt-4">
+                        ¡Esperamos verte en el próximo evento!
+                    </p>
+                </div>
+            );
+        };
+
+        // --- MODAL: ¡ES UN MATCH! ---
+        const MatchModal = () => {
+            const { showMatchModal, currentUser, handleCloseMatchModal, handleGoToChatFromModal } = useContext(AppContext);
+            
+            if (!showMatchModal) return null;
+
+            return (
+                <div className="absolute inset-0 bg-black bg-opacity-75 flex flex-col items-center justify-center p-6 z-50">
+                    <div className="bg-white rounded-2xl p-8 text-center shadow-2xl animate-pulse-once" style={{ animation: 'scale-in 0.3s ease-out' }}>
+                        <h1 className="text-5xl font-bold text-potenciarte-primary mb-6" style={{ fontFamily: "'Brush Script MT', cursive", transform: 'rotate(-5deg)' }}>
+                            ¡Es un Match!
+                        </h1>
+                        <p className="text-gray-600 text-lg mb-6">Tú y {showMatchModal.name} se han gustado mutuamente.</p>
+                        
+                        <div className="flex items-center justify-center space-x-4 mb-8">
+                            <img src={currentUser.profilePic} alt={currentUser.name} className="w-28 h-28 rounded-full object-cover border-4 border-white shadow-lg" />
+                            <img src={showMatchGModal.profilePic} alt={showMatchModal.name} className="w-28 h-28 rounded-full object-cover border-4 border-white shadow-lg" />
+                        </div>
+                        
+                        <div className="flex flex-col space-y-3">
+                            <button
+                                onClick={handleGoToChatFromModal}
+                                className="w-full bg-potenciarte-primary text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-orange-600 transition duration-300"
+                            >
+                                Enviar Mensaje
+                            </button>
+                            <button
+                                onClick={handleCloseMatchModal}
+                                className="w-full bg-transparent text-gray-600 font-semibold py-3 px-6 rounded-lg hover:bg-gray-100 transition duration-300"
+                            >
+                                Seguir Buscando
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Componente Principal (Router) ---
+        const AppContent = () => {
+            const { view, appView } = useContext(AppContext);
+
+            let content;
+            if (view === 'login') {
+                content = <LoginScreen />;
+            } else if (view === 'payment') {
+                content = <PaymentScreen />;
+            } else if (view === 'event-end') {
+                content = <EventEndScreen />;
+            } else if (view === 'app') {
+                content = (
+                    <div className="flex flex-col h-full">
+                        <AppHeader />
+                        <main className="flex-grow overflow-hidden relative">
+                            {appView === 'networking' && <NetworkingView />}
+                            {appView === 'matches' && <MatchesView />}
+                            {appView === 'chat' && <ChatView />}
+                        </main>
+                        {appView !== 'chat' && <AppNavBar />}
+                    </div>
+                );
+            }
+
+            return (
+                <div className="max-w-md mx-auto bg-white shadow-2xl rounded-lg overflow-hidden relative md:my-8" 
+                     style={{ height: 'calc(100vh - 4rem)', minHeight: '600px', maxHeight: '900px' }}>
+                    {content}
+                    <MatchModal />
+                </div>
+            );
+        };
+        
+        // --- Aplicación Raíz ---
+        const App = () => (
+            <AppProvider>
+                <AppContent />
+            </AppProvider>
+        );
+
+        // --- Montar la App en el DOM ---
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+
+    </script>
+
+</body>
+</html>
