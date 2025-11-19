@@ -94,13 +94,31 @@
                         title={prop} // Muestra el nombre del icono al pasar el mouse
                         {...props}
                     >
-                        {/* Mapeo simple de emojis para fallbacks visuales */}
-                        {prop === 'Heart' ? '❤️' : 
-                         prop === 'X' ? '❌' : 
-                         prop === 'MessageCircle' ? '💬' : 
-                         prop === 'User' ? '👤' : 
-                         prop === 'Zap' ? '⚡' : 
-                         prop === 'Sparkles' ? '✨' : '🔹'}
+                        {/* Mapeo COMPLETO de emojis para fallbacks visuales explícitos */}
+                        {
+                            // Acciones
+                            prop === 'Heart' ? '❤️' : 
+                            prop === 'X' ? '❌' : 
+                            prop === 'Send' ? '🚀' : 
+                            prop === 'Camera' ? '📷' : 
+                            prop === 'LogOut' ? '🚪' :
+                            prop === 'ArrowLeft' ? '⬅️' :
+                            prop === 'ArrowRight' ? '➡️' :
+                            
+                            // UI Elements
+                            prop === 'MessageCircle' ? '💬' : 
+                            prop === 'User' ? '👤' : 
+                            prop === 'Zap' ? '⚡' : 
+                            prop === 'Sparkles' ? '✨' : 
+                            prop === 'Megaphone' ? '📢' :
+                            prop === 'Shield' ? '🛡️' :
+                            
+                            // Intereses
+                            prop === 'Coffee' ? '☕' :
+                            prop === 'Wine' ? '🍷' :
+                            prop === 'PartyPopper' ? '🎉' :
+                            '🔹' // Default solo si no hay mapping
+                        }
                     </span>
                 );
             }
@@ -109,7 +127,7 @@
         const { 
             Heart, X, MessageCircle, User, Settings, Shield, 
             Users, Zap, LogOut, Send, Camera, Sparkles, Megaphone,
-            ArrowRight, MapPin, Coffee, Wine, PartyPopper
+            ArrowRight, ArrowLeft, MapPin, Coffee, Wine, PartyPopper // Agregado ArrowLeft explícitamente
         } = LucideLibrary;
 
         // --- DATA MOCKUP & CONFIG ---
@@ -611,7 +629,14 @@
             return (
                 <div className="flex flex-col h-full bg-white">
                     <div className="p-4 border-b flex items-center bg-white shadow-sm z-10">
-                        <button onClick={onClose} className="mr-3 text-gray-500"><ArrowRight className="rotate-180" /></button>
+                        <button 
+                            onClick={onClose} 
+                            className="mr-3 text-gray-500 hover:text-brand-orange hover:bg-gray-100 p-2 rounded-full transition-colors"
+                            title="Volver al menú"
+                        >
+                            {/* UX MEJORADO: Usar ArrowLeft explícito en lugar de ArrowRight rotado */}
+                            <ArrowLeft size={24} />
+                        </button>
                         <img src={match.photo} className="w-10 h-10 rounded-full bg-gray-100" />
                         <div className="ml-3">
                             <h3 className="font-bold text-brand-dark text-sm">{match.name}</h3>
