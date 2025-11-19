@@ -2,873 +2,837 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Potenciarte Networking</title>
-    <link rel="icon" type="image/png" href="img/favicon.png">
-
-    <!-- 1. Tailwind CSS CDN -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Potenciarte - Conexiones en Vivo</title>
+    
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Lucide Icons (Versión Estable para CDN) -->
+    <script src="https://unpkg.com/lucide-react@0.263.1/dist/umd/lucide-react.min.js"></script>
+
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        potenciarte: {
-                            primary: '#F97316', // Naranja
-                            dark: '#1F2937',    // Gris Oscuro
-                            light: '#F3F4F6',   // Gris Claro
+                        brand: {
+                            orange: '#F97316', // Tu color naranja
+                            dark: '#1F2937',
+                            purple: '#8B5CF6', // Un morado para contraste lúdico
+                            pink: '#EC4899',   // Un rosa para acciones románticas
                         }
                     },
                     fontFamily: {
                         sans: ['Inter', 'sans-serif'],
+                        display: ['Fredoka', 'sans-serif'], // Fuente lúdica simulada
+                    },
+                    animation: {
+                        'bounce-short': 'bounce 0.5s ease-in-out 2',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
                     }
                 }
             }
         }
     </script>
-
-    <!-- 2. React CDN -->
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    
-    <!-- 3. ReactDOM CDN (Depende de React) -->
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-
-    <!-- 4. Lucide-React Icons CDN (ELIMINADO PARA ESTABILIDAD) -->
-    <!-- <script src="https://unpkg.com/lucide-react@latest/dist/umd/lucide-react.js"></script> -->
-
-    <!-- 5. Babel Standalone CDN (para transpilar JSX) -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-    <!-- Estilos base para la simulación mobile-first -->
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #e5e7eb; /* bg-gray-200 */
+        /* Estilos base y animaciones de tarjetas */
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&family=Inter:wght@400;600&display=swap');
+        
+        body { background-color: #f3f4f6; touch-action: manipulation; }
+        
+        .card-stack-container { position: relative; width: 100%; height: 100%; }
+        
+        .swipe-card {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: 1.5rem;
+            background: white;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            transform-origin: 50% 100%;
+            overflow: hidden;
         }
-        /* Clases personalizadas para la animación de swipe */
-        .card-entering {
-            animation: scale-in 0.3s ease-out;
-        }
-        .card-swiping-right {
-            transform: translateX(120%) rotate(15deg) !important;
-            transition: transform 0.4s ease-in;
-        }
-        .card-swiping-left {
-            transform: translateX(-120%) rotate(-15deg) !important;
-            transition: transform 0.4s ease-in;
-        }
-        @keyframes scale-in {
-            from {
-                opacity: 0;
-                transform: scale(0.9);
-            }
-            to {
-                opacity: 1;
-                transform: scale(1);
-            }
-        }
+
+        .swipe-exit-left { transform: translateX(-150%) rotate(-20deg) !important; opacity: 0; }
+        .swipe-exit-right { transform: translateX(150%) rotate(20deg) !important; opacity: 0; }
+
+        /* Scroll oculto para UI limpia */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body>
-    
-    <!-- Contenedor raíz para la app React -->
     <div id="root"></div>
 
-    <!-- Script de la aplicación React (JSX) -->
     <script type="text/babel">
-      
-        const { useState, useEffect, createContext, useContext, useMemo } = React;
-        const { createRoot } = ReactDOM;
+        const { useState, useEffect, useMemo, useRef } = React;
+        
+        // CORRECCIÓN: Usamos window.lucide que es donde la versión UMD expone los componentes
+        const { 
+            Heart, X, MessageCircle, User, Settings, Shield, 
+            Users, Zap, LogOut, Send, Camera, Sparkles, Megaphone,
+            ArrowRight, MapPin, Coffee, Wine, PartyPopper
+        } = window.lucide;
 
-        // --- Contexto Global de la App ---
-        const AppContext = createContext();
+        // --- DATA MOCKUP & CONFIG ---
 
-        const AppProvider = ({ children }) => {
-            // --- ESTADO PRINCIPAL ---
-            const [view, setView] = useState('login'); 
-            const [appView, setAppView] = useState('networking');
-            const [isLoading, setIsLoading] = useState(false);
-            const [errorMessage, setErrorMessage] = useState(null);
-            const [currentUser, setCurrentUser] = useState(MOCK_USERS[0]);
-            const [profilesStack, setProfilesStack] = useState(MOCK_USERS.slice(1));
-            const [likes, setLikes] = useState(new Set());
-            // REQ 3: Empezar con un match y un chat de ejemplo
-            const [matches, setMatches] = useState([MOCK_USERS[1]]); // Empezar con Ana (u2) como match
-            const [chattingWithUser, setChattingWithUser] = useState(null);
-            const [messages, setMessages] = useState({
-                'u2': [ // Chat de ejemplo con Ana González (u2)
-                    { id: 'msg-ana-1', sender: 'u2', text: '¡Hola! Vi que también estabas en el evento. Un gusto conectar.', timestamp: new Date(Date.now() - 60000 * 5).toISOString() },
-                    { id: 'msg-demo-1', sender: 'u1', text: 'Hola Ana! Igualmente. ¿Qué te pareció la charla de apertura?', timestamp: new Date(Date.now() - 60000 * 3).toISOString() },
-                    { id: 'msg-ana-2', sender: 'u2', text: '¡Estuvo genial! Sobretodo la parte de IA. ¿Tú en qué área estás?', timestamp: new Date(Date.now() - 60000 * 1).toISOString() }
-                ]
-            });
-            const [newMatchCount, setNewMatchCount] = useState(0);
-            const [showMatchModal, setShowMatchModal] = useState(null);
+        // Generador de avatares caricatura
+        const getAvatar = (seed) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&backgroundColor=b6e3f4,c0aede,d1d4f9`;
 
-            // --- MANEJADORES DE ACCIONES ---
+        // Opciones de configuración
+        const INTENTIONS = [
+            { id: 'fun', label: 'Buena onda', icon: <Sparkles size={16} /> },
+            { id: 'friend', label: 'Amistad', icon: <Coffee size={16} /> },
+            { id: 'casual', label: 'Algo casual', icon: <Wine size={16} /> },
+            { id: 'love', label: 'Felices x siempre', icon: <Heart size={16} /> },
+        ];
 
-            const handleLogin = (email, password) => {
-                setIsLoading(true);
-                setErrorMessage(null);
-                
-                setTimeout(() => {
-                    if (email === 'networking@potenciarte.cl' && password === 'pass123') {
-                        setView('payment');
-                    } else {
-                        setErrorMessage('Credenciales incorrectas. Inténtalo de nuevo.');
-                    }
-                    setIsLoading(false);
-                }, 1000);
-            };
+        const IDENTITIES = ['Hombre', 'Mujer', 'No binario', 'Prefiero no decirlo'];
+        const PREFERENCES = ['Hombres', 'Mujeres', 'Todos'];
 
-            const handlePayment = () => {
-                setIsLoading(true);
-                
-                setTimeout(() => {
-                    // REQ 1: Ir a la configuración de perfil en lugar de la app
-                    setView('profile-setup');
-                    setIsLoading(false);
-                }, 1500);
-            };
-
-            const handleSwipe = (swipedUser, direction) => {
-                setProfilesStack(prevStack => prevStack.filter(p => p.id !== swipedUser.id));
-
-                if (direction === 'like') {
-                    const newLikes = new Set(likes);
-                    newLikes.add(swipedUser.id);
-                    setLikes(newLikes);
-
-                    const isMutualMatch = ['u2', 'u4'].includes(swipedUser.id);
-                    
-                    if (isMutualMatch) {
-                        setMatches(prevMatches => [...prevMatches, swipedUser]);
-                        setNewMatchCount(prevCount => prevCount + 1);
-                        setShowMatchModal(swipedUser);
-
-                        // REQ 3: Añadir primer mensaje automático del nuevo match
-                        const firstMessage = {
-                            id: `msg-${swipedUser.id}-${Date.now()}`,
-                            sender: swipedUser.id,
-                            text: `¡Genial! Hicimos match. ¿Interesado en conectar? 😊`,
-                            timestamp: new Date().toISOString()
-                        };
-
-                        setMessages(prevMessages => {
-                            const oldMessages = prevMessages[swipedUser.id] || [];
-                            return {
-                                ...prevMessages,
-                                [swipedUser.id]: [...oldMessages, firstMessage]
-                            };
-                        });
-                        // --- Fin REQ 3 ---
-                    }
-                }
-            };
-
-            const handleViewChat = (user) => {
-                setChattingWithUser(user);
-                setAppView('chat');
-                if (appView === 'matches') {
-                    setNewMatchCount(0);
-                }
-            };
-
-            const handleBackFromChat = () => {
-                setChattingWithUser(null);
-                setAppView('matches');
-            };
-            
-            const handleSendMessage = (text) => {
-                if (!text.trim() || !chattingWithUser) return;
-                
-                const partnerId = chattingWithUser.id;
-                const newMessage = {
-                    id: `msg-${Date.now()}`,
-                    sender: currentUser.id,
-                    text: text.trim(),
-                    timestamp: new Date().toISOString()
-                };
-
-                setMessages(prevMessages => {
-                    const oldMessages = prevMessages[partnerId] || [];
-                    return {
-                        ...prevMessages,
-                        [partnerId]: [...oldMessages, newMessage]
-                    };
-                });
-            };
-
-            const handleEndEvent = () => {
-                setView('event-end');
-            };
-
-            const handleCloseMatchModal = () => {
-                setShowMatchModal(null);
-            };
-
-            const handleGoToChatFromModal = () => {
-                const user = showMatchModal;
-                setShowMatchModal(null);
-                handleViewChat(user);
-            };
-
-            // --- Valor del Contexto ---
-            const value = {
-                view, setView,
-                appView, setAppView,
-                isLoading, setIsLoading,
-                errorMessage, setErrorMessage,
-                currentUser,
-                setCurrentUser, // <-- CORRECCIÓN: Añadido setCurrentUser al contexto
-                profilesStack,
-                matches,
-                newMatchCount,
-                showMatchModal,
-                messages,
-                chattingWithUser,
-                handleLogin,
-                handlePayment,
-                handleSwipe,
-                handleViewChat,
-                handleBackFromChat,
-                handleSendMessage,
-                handleEndEvent,
-                handleCloseMatchModal,
-                handleGoToChatFromModal,
-            };
-
-            return (
-                <AppContext.Provider value={value}>
-                    {children}
-                </AppContext.Provider>
-            );
-        };
-
-        // --- Iconos de Lucide ELIMINADOS ---
-        // const { 
-        //     Users, MessageCircle, X, Heart, Send, ArrowLeft, CalendarOff, Mail, Lock, Loader2, CheckCircle, Ticket
-        // } = LucideReact;
-
-        // --- Datos de Prueba (Mock Data) ---
-        const MOCK_USERS = [
-            {
-                id: 'u1',
-                name: 'Usuario Demo',
-                jobTitle: 'Asistente al Evento',
-                company: 'Tu Empresa',
-                bio: 'Buscando conectar con profesionales del sector.',
-                profilePic: 'https://placehold.co/400x400/F97316/FFFFFF?text=T%C3%9A'
+        // Usuarios Iniciales (Base de datos simulada)
+        const INITIAL_USERS = [
+            { 
+                id: 'u1', name: 'Admin User', email: 'admin@potenciarte.cl', isAdmin: true, 
+                photo: getAvatar('admin'), bio: 'Gestor del evento', role: 'admin' 
             },
-            {
-                id: 'u2',
-                name: 'Ana González',
-                jobTitle: 'Directora de Marketing',
-                company: 'Tech Solutions',
-                bio: 'Especialista en estrategias digitales y crecimiento. Abierta a colaborar en proyectos innovadores.',
-                profilePic: 'https://placehold.co/400x400/6366F1/FFFFFF?text=AG'
+            { 
+                id: 'u2', name: 'Sofía', email: 'sofia@demo.com', isAdmin: false,
+                photo: getAvatar('Sofia'), bio: 'Amo el sushi y las caminatas largas.', 
+                identity: 'Mujer', interestedIn: 'Hombres', intention: 'love', paid: true 
             },
-            {
-                id: 'u3',
-                name: 'Carlos Vera',
-                jobTitle: 'Desarrollador Full-Stack',
-                company: 'DevCore',
-                bio: 'Apasionado por React y Node.js. Busco oportunidades de freelance.',
-                profilePic: 'https://placehold.co/400x400/10B981/FFFFFF?text=CV'
+            { 
+                id: 'u3', name: 'Mateo', email: 'mateo@demo.com', isAdmin: false,
+                photo: getAvatar('Mateo'), bio: 'Ingeniero de día, gamer de noche.', 
+                identity: 'Hombre', interestedIn: 'Mujeres', intention: 'casual', paid: true 
             },
-            {
-                id: 'u4',
-                name: 'Sofía Martínez',
-                jobTitle: 'Diseñadora UX/UI',
-                company: 'PixelPerfect',
-                bio: 'Creando experiencias de usuario intuitivas y memorables. Tomemos un café virtual.',
-                profilePic: 'https://placehold.co/400x400/EC4899/FFFFFF?text=SM'
+            { 
+                id: 'u4', name: 'Valentina', email: 'vale@demo.com', isAdmin: false,
+                photo: getAvatar('Valentina'), bio: 'Busco gente para ir a escalar.', 
+                identity: 'Mujer', interestedIn: 'Todos', intention: 'friend', paid: true 
             },
-            {
-                id: 'u5',
-                name: 'Javier Torres',
-                jobTitle: 'CEO y Fundador',
-                company: 'Startup Rápida',
-                bio: 'En busca de inversores ángeles y talento para mi próxima gran idea.',
-                profilePic: 'https://placehold.co/400x400/06B6D4/FFFFFF?text=JT'
+            { 
+                id: 'u5', name: 'Lucas', email: 'lucas@demo.com', isAdmin: false,
+                photo: getAvatar('Lucas'), bio: 'Recién llegado a la ciudad.', 
+                identity: 'Hombre', interestedIn: 'Mujeres', intention: 'fun', paid: true 
             },
-            {
-                id: 'u6',
-                name: 'Lucía Fernández',
-                jobTitle: 'Analista de Datos',
-                company: 'Data Insights',
-                bio: 'Transformando datos en decisiones de negocio. Me encanta el machine learning.',
-                profilePic: 'https://placehold.co/400x400/F59E0B/FFFFFF?text=LF'
+            { 
+                id: 'u6', name: 'Carla', email: 'carla@demo.com', isAdmin: false,
+                photo: getAvatar('Carla'), bio: 'Fotógrafa amateur.', 
+                identity: 'Mujer', interestedIn: 'Hombres', intention: 'love', paid: true 
+            },
+            { 
+                id: 'u7', name: 'Alex', email: 'alex@demo.com', isAdmin: false,
+                photo: getAvatar('Alex'), bio: 'Me río de mis propios chistes.', 
+                identity: 'No binario', interestedIn: 'Todos', intention: 'fun', paid: true 
             }
         ];
 
-        // --- Componente: Icono con Badge ---
-        const IconWithBadge = ({ children, count }) => (
-            <div className="relative">
-                <span className="text-3xl">{children}</span> {/* Ajustado para Emoji */}
-                {count > 0 && (
-                    <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                        {count}
-                    </span>
-                )}
-            </div>
-        );
-        
-        // --- Componente: Botón Giratorio de Carga ---
-        // Reemplazado por texto simple para evitar dependencias
-        const LoadingSpinner = () => (
-            <span className="animate-pulse">Cargando...</span>
-        );
+        // --- COMPONENTES ---
 
-        // --- PANTALLA 1: LOGIN ---
-        const LoginScreen = () => {
-            const { handleLogin, isLoading, errorMessage } = useContext(AppContext);
-            const [email, setEmail] = useState('networking@potenciarte.cl');
-            const [password, setPassword] = useState('pass123');
-
-            const handleSubmit = (e) => {
-                e.preventDefault();
-                handleLogin(email, password);
-            };
-
+        // 1. Banner de Anuncios (Global)
+        const AnnouncementBanner = ({ message }) => {
+            if (!message) return null;
             return (
-                <div className="flex flex-col items-center justify-center h-full p-8 bg-potenciarte-dark text-white">
-                    <img src="img/logo.png" alt="Logo Potenciarte" className="w-48 mb-8" 
-                         onError={(e) => { e.target.onerror = null; e.target.src='https://placehold.co/300x100/1F2937/FFFFFF?text=Potenciarte+Logo'; }} />
-                    <h1 className="text-3xl font-bold mb-4">Networking App</h1>
-                    <p className="text-gray-300 mb-8">Accede para conectar</p>
+                <div className="bg-gradient-to-r from-brand-purple to-brand-pink text-white p-3 shadow-lg animate-pulse-slow sticky top-0 z-50 flex items-center justify-center gap-2">
+                    <Megaphone size={20} className="animate-bounce-short" />
+                    <span className="font-bold text-sm md:text-base text-center">{message}</span>
+                </div>
+            );
+        };
 
-                    <form onSubmit={handleSubmit} className="w-full max-w-sm">
-                        <div className="mb-4 relative">
-                            {/* Icono eliminado <Mail ... /> */}
-                            <input
-                                type="email"
-                                placeholder="Email (networking@potenciarte.cl)"
+        // 2. Pantalla de Login
+        const LoginScreen = ({ onLogin }) => {
+            const [email, setEmail] = useState('');
+            
+            return (
+                <div className="h-full flex flex-col items-center justify-center p-6 bg-brand-dark text-white relative overflow-hidden">
+                    {/* Fondo decorativo */}
+                    <div className="absolute top-[-10%] right-[-10%] w-64 h-64 bg-brand-orange rounded-full opacity-20 blur-3xl"></div>
+                    <div className="absolute bottom-[-10%] left-[-10%] w-64 h-64 bg-brand-purple rounded-full opacity-20 blur-3xl"></div>
+
+                    <div className="z-10 w-full max-w-sm text-center">
+                        <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl mb-8 inline-block shadow-xl">
+                            <Zap size={48} className="text-brand-orange mx-auto" />
+                        </div>
+                        <h1 className="text-4xl font-display font-bold mb-2">Potenciarte</h1>
+                        <p className="text-gray-300 mb-8">Conecta, fluye y diviértete.</p>
+
+                        <div className="space-y-4">
+                            <input 
+                                type="email" 
+                                placeholder="Tu correo" 
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-potenciarte-primary"
-                                required
+                                className="w-full p-4 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-orange"
                             />
+                            <button 
+                                onClick={() => onLogin(email)}
+                                className="w-full bg-brand-orange hover:bg-orange-600 text-white font-bold py-4 rounded-xl transition-all transform hover:scale-105 shadow-lg"
+                            >
+                                Ingresar al Evento
+                            </button>
                         </div>
-                        <div className="mb-6 relative">
-                            {/* Icono eliminado <Lock ... /> */}
-                            <input
-                                type="password"
-                                placeholder="Contraseña (pass123)"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-potenciarte-primary"
-                                required
-                            />
+                        
+                        <div className="mt-8 text-xs text-gray-500">
+                            <p>Demo Users: sofia@demo.com, mateo@demo.com</p>
+                            <p>Admin: admin@potenciarte.cl</p>
                         </div>
-
-                        {errorMessage && (
-                            <p className="text-red-400 text-center mb-4">{errorMessage}</p>
-                        )}
-
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="w-full bg-potenciarte-primary text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-orange-600 transition duration-300 flex items-center justify-center disabled:bg-orange-400 disabled:cursor-not-allowed"
-                        >
-                            {isLoading ? <LoadingSpinner /> : 'Ingresar'}
-                        </button>
-                    </form>
+                    </div>
                 </div>
             );
         };
 
-        // --- PANTALLA 2: PAGO SIMULADO ---
-        const PaymentScreen = () => {
-            const { handlePayment, isLoading } = useContext(AppContext);
+        // 3. Pantalla de Pago
+        const PaymentScreen = ({ onComplete }) => {
+            const [loading, setLoading] = useState(false);
+
+            const handlePay = () => {
+                setLoading(true);
+                setTimeout(() => {
+                    setLoading(false);
+                    onComplete();
+                }, 1500);
+            };
 
             return (
-                <div className="flex flex-col items-center justify-between h-full p-8 bg-white">
-                    <div className="text-center w-full">
-                        {/* Icono reemplazado por emoji */}
-                        <span className="text-6xl mb-4 inline-block">&#x1F3AB;</span> {/* 🎟️ */}
-                        <h1 className="text-3xl font-bold text-potenciarte-dark mb-2">Evento INAD</h1>
-                        <p className="text-lg text-gray-600 mb-8">Confirma tu entrada</p>
-
-                        <div className="bg-potenciarte-light p-6 rounded-lg text-left shadow-inner">
-                            <h2 className="text-2xl font-semibold text-potenciarte-dark mb-4">Total a Pagar: $25.000 CLP</h2>
-                            <ul className="space-y-3">
-                                <li className="flex items-center text-gray-700">
-                                    {/* Icono reemplazado por emoji */}
-                                    <span className="mr-3">&#x2705;</span> {/* ✅ */}
-                                    Acceso completo al evento
-                                </li>
-                                <li className="flex items-center text-gray-700">
-                                    <span className="mr-3">&#x2705;</span> {/* ✅ */}
-                                    Acceso a la App de Networking
-                                </li>
-                                <li className="flex items-center text-gray-700">
-                                    <span className="mr-3">&#x2705;</span> {/* ✅ */}
-                                    Acceso a charlas y talleres
-                                </li>
+                <div className="h-full flex flex-col p-6 bg-white text-brand-dark items-center justify-center">
+                    <div className="w-full max-w-sm text-center">
+                        <div className="mb-6 relative inline-block">
+                            <img src="https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=500&q=60" className="w-full h-48 object-cover rounded-2xl shadow-xl filter brightness-75" alt="Fiesta" />
+                            <div className="absolute bottom-0 left-0 p-4 text-white text-left">
+                                <h2 className="text-2xl font-bold">Evento Exclusivo</h2>
+                                <p className="text-sm opacity-90">Acceso Total + App Matching</p>
+                            </div>
+                        </div>
+                        
+                        <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 mb-6">
+                            <div className="flex justify-between items-center mb-4">
+                                <span className="font-semibold">Entrada General</span>
+                                <span className="text-xl font-bold text-brand-orange">$15.000</span>
+                            </div>
+                            <hr className="border-dashed border-gray-300 my-2" />
+                            <ul className="text-left text-sm space-y-2 text-gray-600 mt-2">
+                                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Barra libre hasta las 12</li>
+                                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Acceso a "The Match Game"</li>
                             </ul>
                         </div>
-                    </div>
 
-                    <button
-                        onClick={handlePayment}
-                        disabled={isLoading}
-                        className="w-full bg-potenciarte-primary text-white font-bold py-4 px-6 rounded-lg shadow-lg hover:bg-orange-600 transition duration-300 flex items-center justify-center text-lg disabled:bg-orange-400 disabled:cursor-not-allowed mt-8"
-                    >
-                        {isLoading ? (
-                            <>
-                                <LoadingSpinner />
-                                {/* <span className="ml-2">Procesando pago...</span> */}
-                            </>
-                        ) : (
-                            'Pagar y Acceder a la App'
-                        )}
-                    </button>
+                        <button 
+                            onClick={handlePay}
+                            disabled={loading}
+                            className="w-full bg-brand-dark text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 disabled:opacity-70"
+                        >
+                            {loading ? 'Procesando...' : (
+                                <>
+                                    Pagar Entrada <ArrowRight size={18} />
+                                </>
+                            )}
+                        </button>
+                    </div>
                 </div>
             );
         };
 
-        // --- NUEVA PANTALLA: CONFIGURACIÓN DE PERFIL (REQ 1) ---
-        const ProfileSetupScreen = () => {
-            const { currentUser, setCurrentUser, setIsLoading, isLoading, setView } = useContext(AppContext);
-            
-            // Usamos el email de login y los datos por defecto del currentUser
-            const [name, setName] = useState(currentUser.name);
-            const [email, setEmail] = useState('networking@potenciarte.cl');
-            const [bio, setBio] = useState(currentUser.bio);
+        // 4. Setup de Perfil (Data detallada)
+        const ProfileSetup = ({ user, onSave }) => {
+            const [formData, setFormData] = useState({
+                name: user.name || '',
+                identity: user.identity || 'Prefiero no decirlo',
+                interestedIn: user.interestedIn || 'Todos',
+                intention: user.intention || 'fun',
+                bio: user.bio || '',
+            });
 
-            const handleSubmit = (e) => {
-                e.preventDefault();
-                setIsLoading(true);
-                
-                // Actualizar el currentUser en el contexto
-                setCurrentUser(prevUser => ({
-                    ...prevUser,
-                    name,
-                    email, // Aunque no se usa en la maqueta, es bueno guardarlo
-                    bio
-                }));
-                
-                // Simular guardado y navegar a la app
-                setTimeout(() => {
-                    setIsLoading(false);
-                    setView('app');
-                }, 1000);
-            };
+            // Avatar pseudo-aleatorio basado en el nombre para la demo
+            const previewAvatar = getAvatar(formData.name || 'newuser');
 
             return (
-                <div className="flex flex-col h-full p-8 bg-white">
-                    <div className="text-center w-full">
-                        <span className="text-6xl mb-4 inline-block">&#x1F4DD;</span> {/* 📝 */}
-                        <h1 className="text-3xl font-bold text-potenciarte-dark mb-2">¡Casi listo!</h1>
-                        <p className="text-lg text-gray-600 mb-8">Completa tu perfil para que otros puedan encontrarte.</p>
-                    </div>
+                <div className="h-full flex flex-col bg-gray-50 overflow-y-auto no-scrollbar">
+                    <div className="p-6 pb-24">
+                        <h2 className="text-2xl font-display font-bold text-brand-dark mb-1">Crea tu Perfil</h2>
+                        <p className="text-gray-500 mb-6 text-sm">¡Así te verán los demás en la fiesta!</p>
 
-                    <form onSubmit={handleSubmit} className="flex-grow flex flex-col justify-between">
-                        <div className="space-y-4">
-                            <div>
-                                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Nombre Completo</label>
-                                <input
-                                    type="text"
-                                    id="name"
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    className="w-full p-3 bg-gray-100 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-potenciarte-primary"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email de Contacto</label>
-                                <input
-                                    type="email"
-                                    id="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full p-3 bg-gray-100 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-potenciarte-primary"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label htmlFor="bio" className="block text-sm font-medium text-gray-700 mb-1">Tu biografía (corta)</label>
-                                <textarea
-                                    id="bio"
-                                    rows="4"
-                                    value={bio}
-                                    onChange={(e) => setBio(e.target.value)}
-                                    placeholder="Ej: Apasionado por la tecnología y buscando..."
-                                    className="w-full p-3 bg-gray-100 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-potenciarte-primary"
-                                    maxLength="150"
-                                    required
-                                />
-                                <p className="text-xs text-gray-500 text-right mt-1">{bio.length} / 150</p>
+                        <div className="flex justify-center mb-6">
+                            <div className="relative w-32 h-32">
+                                <img src={previewAvatar} alt="Avatar" className="w-32 h-32 rounded-full border-4 border-white shadow-md bg-blue-100" />
+                                <div className="absolute bottom-0 right-0 bg-brand-orange p-2 rounded-full text-white shadow-sm">
+                                    <Camera size={16} />
+                                </div>
                             </div>
                         </div>
 
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="w-full bg-potenciarte-primary text-white font-bold py-4 px-6 rounded-lg shadow-lg hover:bg-orange-600 transition duration-300 flex items-center justify-center text-lg disabled:bg-orange-400 disabled:cursor-not-allowed mt-8"
+                        <div className="space-y-5">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Tu Nombre</label>
+                                <input 
+                                    type="text" 
+                                    value={formData.name} 
+                                    onChange={e => setFormData({...formData, name: e.target.value})}
+                                    className="w-full p-3 rounded-lg border border-gray-200 focus:border-brand-orange focus:ring-1 focus:ring-brand-orange outline-none"
+                                    placeholder="Ej. Alex"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Me identifico como</label>
+                                <div className="flex flex-wrap gap-2">
+                                    {IDENTITIES.map(id => (
+                                        <button
+                                            key={id}
+                                            onClick={() => setFormData({...formData, identity: id})}
+                                            className={`px-3 py-2 text-sm rounded-lg border ${formData.identity === id ? 'bg-brand-dark text-white border-brand-dark' : 'bg-white text-gray-600 border-gray-200'}`}
+                                        >
+                                            {id}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Busco conectar con</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {PREFERENCES.map(pref => (
+                                        <button
+                                            key={pref}
+                                            onClick={() => setFormData({...formData, interestedIn: pref})}
+                                            className={`px-3 py-2 text-sm rounded-lg border text-center ${formData.interestedIn === pref ? 'bg-brand-purple text-white border-brand-purple' : 'bg-white text-gray-600 border-gray-200'}`}
+                                        >
+                                            {pref}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">¿Qué buscas hoy?</label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {INTENTIONS.map(intent => (
+                                        <button
+                                            key={intent.id}
+                                            onClick={() => setFormData({...formData, intention: intent.id})}
+                                            className={`p-3 rounded-xl border flex items-center gap-2 transition-all ${formData.intention === intent.id ? 'bg-orange-50 border-brand-orange ring-1 ring-brand-orange text-brand-orange' : 'bg-white border-gray-200 text-gray-600'}`}
+                                        >
+                                            <div className={formData.intention === intent.id ? 'text-brand-orange' : 'text-gray-400'}>
+                                                {intent.icon}
+                                            </div>
+                                            <span className="text-sm font-medium">{intent.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Sobre ti (Breve)</label>
+                                <textarea 
+                                    value={formData.bio}
+                                    onChange={e => setFormData({...formData, bio: e.target.value})}
+                                    className="w-full p-3 rounded-lg border border-gray-200 focus:border-brand-orange outline-none h-24 resize-none"
+                                    placeholder="Me gusta el cine, los perros y..."
+                                    maxLength={100}
+                                />
+                                <p className="text-right text-xs text-gray-400">{formData.bio.length}/100</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 max-w-md mx-auto">
+                        <button 
+                            onClick={() => onSave({...user, ...formData, photo: previewAvatar})}
+                            className="w-full bg-brand-orange text-white font-bold py-3 rounded-xl shadow-lg"
                         >
-                            {isLoading ? <LoadingSpinner /> : 'Guardar y Empezar Networking'}
+                            ¡Listo para la fiesta!
                         </button>
-                    </form>
+                    </div>
                 </div>
             );
         };
 
-
-        // --- PANTALLA 3: APLICACIÓN PRINCIPAL ---
-
-        // --- Header de la App ---
-        const AppHeader = () => {
-            const { handleEndEvent } = useContext(AppContext);
-
-            return (
-                <header className="flex items-center justify-between p-4 bg-white border-b border-gray-200">
-                    <img src="img/logo.png" alt="Logo Potenciarte" className="h-8" 
-                         onError={(e) => { e.target.onerror = null; e.target.src='https://placehold.co/150x40/FFFFFF/1F2937?text=Potenciarte'; }} />
-                    <button 
-                        onClick={handleEndEvent} 
-                        title="Simular Fin de Evento"
-                        className="text-gray-500 hover:text-red-500 transition-colors px-2 py-1 rounded hover:bg-red-100"
-                    >
-                        {/* Icono reemplazado por texto */}
-                        <span className="text-sm font-medium">[ Finalizar Evento ]</span>
-                    </button>
-                </header>
-            );
-        };
-
-        // --- Navegación Inferior de la App ---
-        const AppNavBar = () => {
-            const { appView, setAppView, newMatchCount } = useContext(AppContext);
-
-            const NavButton = ({ view, label, icon, hasBadge = false }) => {
-                const isActive = appView === view;
+        // 5. Componente de Swipe (Tinder Style)
+        const SwipeDeck = ({ profiles, onSwipe }) => {
+            if (profiles.length === 0) {
                 return (
-                    <button
-                        onClick={() => setAppView(view)}
-                        className={`flex flex-col items-center justify-center w-full p-3 transition-colors ${
-                            isActive ? 'text-potenciarte-primary' : 'text-gray-500 hover:text-potenciarte-primary'
-                        }`}
-                    >
-                        {hasBadge ? (
-                            <IconWithBadge count={newMatchCount}>{icon}</IconWithBadge>
-                        ) : (
-                            <span className="text-3xl">{icon}</span>
-                        )}
-                        <span className="text-xs font-medium mt-1">{label}</span>
-                    </button>
-                );
-            };
-
-            return (
-                <nav className="flex items-center justify-around bg-white border-t border-gray-200 shadow-inner">
-                    <NavButton view="networking" icon={<span>&#x1F46A;</span>} label="Networking" /> {/* 👥 */}
-                    <NavButton view="matches" icon={<span>&#x1F4AC;</span>} label="Matches" hasBadge={true} /> {/* 💬 */}
-                </nav>
-            );
-        };
-
-        // --- Vista A: Networking (Tinder) ---
-        const NetworkingView = () => {
-            const { profilesStack, handleSwipe } = useContext(AppContext);
-            const [swipingDirection, setSwipingDirection] = useState(null);
-            
-            const currentProfile = profilesStack[0];
-            
-            const onSwipe = (direction) => {
-                if (swipingDirection || !currentProfile) return;
-                setSwipingDirection(direction);
-                
-                setTimeout(() => {
-                    handleSwipe(currentProfile, direction);
-                    setSwipingDirection(null);
-                }, 400);
-            };
-
-            if (!currentProfile) {
-                return (
-                    <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-potenciarte-light">
-                        {/* Icono reemplazado por emoji */}
-                        <span className="text-6xl mb-4">&#x1F46A;</span> {/* 👥 */}
-                        <h2 className="text-2xl font-bold text-potenciarte-dark mb-2">¡Eso es todo por ahora!</h2>
-                        <p className="text-gray-600">Has visto todos los perfiles disponibles. Vuelve más tarde para ver nuevos asistentes.</p>
+                    <div className="flex flex-col items-center justify-center h-full text-center p-8 opacity-70">
+                        <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mb-4 animate-pulse">
+                            <Users size={40} className="text-gray-400" />
+                        </div>
+                        <h3 className="text-xl font-bold text-brand-dark">¡No hay más perfiles!</h3>
+                        <p className="text-sm text-gray-500 mt-2">Espera a que lleguen más invitados o amplía tus preferencias.</p>
                     </div>
                 );
             }
 
-            let cardClasses = "absolute inset-0 transition-transform duration-400 ease-in-out card-entering";
-            if (swipingDirection === 'right') cardClasses += ' card-swiping-right';
-            if (swipingDirection === 'left') cardClasses += ' card-swiping-left';
-            
             return (
-                <div className="flex flex-col h-full bg-potenciarte-light p-4 overflow-hidden">
-                    <div className="relative flex-grow">
-                        {profilesStack.slice(0, 2).reverse().map((profile, index) => {
-                            const isTopCard = index === (profilesStack.length > 1 ? 1 : 0);
-                            return (
-                                <div
-                                    key={profile.id}
-                                    className={`absolute inset-0 bg-white rounded-2xl shadow-xl overflow-hidden ${
-                                        isTopCard ? (swipingDirection ? cardClasses : 'card-entering') : 'opacity-80 scale-95'
-                                    }`}
-                                >
-                                    <img 
-                                        src={profile.profilePic} 
-                                        alt={profile.name} 
-                                        className="w-full h-3/5 object-cover" 
-                                    />
-                                    <div className="p-5">
-                                        <h2 className="text-2xl font-bold text-potenciarte-dark">{profile.name}</h2>
-                                        <p className="text-potenciarte-primary font-semibold text-lg">{profile.jobTitle}</p>
-                                        <p className="text-gray-500 mb-3">{profile.company}</p>
-                                        <p className="text-gray-700 text-sm leading-relaxed">{profile.bio}</p>
+                <div className="card-stack-container p-4">
+                    {profiles.map((profile, index) => {
+                        // Solo renderizar los 2 de arriba para performance
+                        if (index > 1) return null;
+                        
+                        const isTop = index === 0;
+                        return (
+                            <div 
+                                key={profile.id}
+                                className={`swipe-card flex flex-col ${!isTop && 'scale-95 opacity-50 translate-y-4 z-0'} ${isTop && 'z-10 cursor-grab active:cursor-grabbing'}`}
+                            >
+                                {/* Imagen */}
+                                <div className="relative h-3/5 bg-blue-50 flex items-center justify-center">
+                                    <img src={profile.photo} alt={profile.name} className="w-full h-full object-contain p-4" />
+                                    <div className="absolute top-4 left-4 bg-white/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-brand-purple shadow-sm">
+                                        {INTENTIONS.find(i => i.id === profile.intention)?.label}
                                     </div>
                                 </div>
-                            );
-                        })}
+
+                                {/* Info */}
+                                <div className="h-2/5 p-5 flex flex-col justify-between bg-white">
+                                    <div>
+                                        <h2 className="text-2xl font-display font-bold text-brand-dark">{profile.name}</h2>
+                                        <p className="text-brand-orange text-sm font-medium mb-2">{profile.identity}</p>
+                                        <p className="text-gray-600 text-sm leading-relaxed">"{profile.bio}"</p>
+                                    </div>
+                                    
+                                    {/* Controles solo visibles en la tarjeta superior */}
+                                    {isTop && (
+                                        <div className="flex justify-center gap-6 mt-2">
+                                            <button 
+                                                onClick={() => onSwipe('left', profile)}
+                                                className="w-14 h-14 bg-white border-2 border-gray-200 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:border-red-500 transition-colors shadow-md"
+                                            >
+                                                <X size={28} />
+                                            </button>
+                                            <button 
+                                                onClick={() => onSwipe('right', profile)}
+                                                className="w-14 h-14 bg-gradient-to-tr from-brand-orange to-pink-500 rounded-full flex items-center justify-center text-white shadow-lg transform hover:scale-110 transition-transform"
+                                            >
+                                                <Heart size={28} fill="white" />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            );
+        };
+
+        // 6. Panel de Administrador
+        const AdminDashboard = ({ users, totalMatches, onPostAnnouncement, activeAnnouncement, onLogout }) => {
+            const [msg, setMsg] = useState('');
+            const paidUsers = users.filter(u => u.paid && !u.isAdmin).length;
+            const registeredProfiles = users.filter(u => u.bio && !u.isAdmin).length;
+
+            return (
+                <div className="h-full flex flex-col bg-gray-100">
+                    <div className="bg-brand-dark text-white p-6 rounded-b-3xl shadow-lg z-10">
+                        <div className="flex justify-between items-center mb-4">
+                            <h1 className="text-2xl font-display font-bold">Admin Panel</h1>
+                            <button onClick={onLogout} className="text-gray-400 hover:text-white"><LogOut size={20}/></button>
+                        </div>
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="bg-white/10 p-3 rounded-xl text-center">
+                                <div className="text-2xl font-bold text-brand-orange">{paidUsers}</div>
+                                <div className="text-xs text-gray-300">Entradas</div>
+                            </div>
+                            <div className="bg-white/10 p-3 rounded-xl text-center">
+                                <div className="text-2xl font-bold text-green-400">{registeredProfiles}</div>
+                                <div className="text-xs text-gray-300">Perfiles</div>
+                            </div>
+                            <div className="bg-white/10 p-3 rounded-xl text-center">
+                                <div className="text-2xl font-bold text-pink-400">{totalMatches}</div>
+                                <div className="text-xs text-gray-300">Matches</div>
+                            </div>
+                        </div>
                     </div>
-                    
-                    <div className="flex-shrink-0 flex items-center justify-center space-x-12 pt-6">
-                        <button 
-                            onClick={() => onSwipe('left')}
-                            disabled={!!swipingDirection}
-                            className="w-20 h-20 bg-white rounded-full shadow-lg flex items-center justify-center text-red-500 hover:scale-110 transition-transform"
-                        >
-                            {/* Icono reemplazado por emoji */}
-                            <span className="text-4xl">&#x274C;</span> {/* ❌ */}
-                        </button>
-                        <button 
-                            onClick={() => onSwipe('right')}
-                            disabled={!!swipingDirection}
-                            className="w-20 h-20 bg-white rounded-full shadow-lg flex items-center justify-center text-green-500 hover:scale-110 transition-transform"
-                        >
-                            {/* Icono reemplazado por emoji */}
-                            <span className="text-4xl">&#x2764;&#xFE0F;</span> {/* ❤️ */}
-                        </button>
+
+                    <div className="p-6 flex-grow overflow-y-auto">
+                        <div className="bg-white p-5 rounded-xl shadow-sm mb-6">
+                            <h3 className="font-bold text-brand-dark mb-3 flex items-center gap-2">
+                                <Megaphone size={18} className="text-brand-purple" /> Publicar Anuncio
+                            </h3>
+                            <div className="space-y-3">
+                                <textarea
+                                    value={msg}
+                                    onChange={e => setMsg(e.target.value)}
+                                    className="w-full p-3 bg-gray-50 rounded-lg border text-sm"
+                                    placeholder="Ej: ¡2x1 en la barra por 15 minutos!"
+                                    rows="2"
+                                />
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => { onPostAnnouncement(msg); setMsg(''); }}
+                                        className="flex-1 bg-brand-purple text-white py-2 rounded-lg text-sm font-bold shadow-md hover:bg-purple-700"
+                                    >
+                                        Publicar
+                                    </button>
+                                    <button 
+                                        onClick={() => onPostAnnouncement(null)}
+                                        className="px-4 bg-gray-200 text-gray-600 rounded-lg text-sm font-bold"
+                                    >
+                                        Borrar
+                                    </button>
+                                </div>
+                                {activeAnnouncement && (
+                                    <p className="text-xs text-green-600 mt-2">Activo: "{activeAnnouncement}"</p>
+                                )}
+                            </div>
+                        </div>
+
+                        <h3 className="font-bold text-gray-500 text-sm uppercase mb-3">Asistentes Recientes</h3>
+                        <div className="space-y-2">
+                            {users.filter(u => !u.isAdmin).map(u => (
+                                <div key={u.id} className="flex items-center bg-white p-3 rounded-lg shadow-sm">
+                                    <img src={u.photo || getAvatar('placeholder')} className="w-8 h-8 rounded-full mr-3 bg-gray-100" />
+                                    <div className="flex-1">
+                                        <div className="font-bold text-sm text-brand-dark">{u.name || u.email}</div>
+                                        <div className="text-xs text-gray-400">
+                                            {u.paid ? (u.bio ? 'Perfil Activo' : 'Pagado (Sin perfil)') : 'Pendiente'}
+                                        </div>
+                                    </div>
+                                    {u.paid && <span className="w-2 h-2 bg-green-500 rounded-full"></span>}
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
             );
         };
 
-        // --- Vista B: Matches (Lista) ---
-        const MatchesView = () => {
-            const { matches, handleViewChat } = useContext(AppContext);
-
+        // 7. Componente de Chats
+        const ChatList = ({ matches, onOpenChat }) => {
             if (matches.length === 0) {
                 return (
-                    <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-potenciarte-light">
-                        {/* Icono reemplazado por emoji */}
-                        <span className="text-6xl mb-4">&#x1F4AC;</span> {/* 💬 */}
-                        <h2 className="text-2xl font-bold text-potenciarte-dark mb-2">Aún no tienes matches</h2>
-                        <p className="text-gray-600">Sigue explorando en la pestaña "Networking" para encontrar conexiones.</p>
+                    <div className="flex flex-col items-center justify-center h-full text-center p-8">
+                        <div className="bg-white p-4 rounded-full mb-4 shadow-sm">
+                            <MessageCircle size={32} className="text-gray-300" />
+                        </div>
+                        <p className="text-gray-500">Aún no tienes chats.</p>
+                        <p className="text-xs text-gray-400 mt-1">¡Haz swipe para conectar!</p>
                     </div>
                 );
             }
-
             return (
-                <div className="flex flex-col h-full bg-potenciarte-light">
-                    <div className="p-4 border-b bg-white">
-                        <h1 className="text-2xl font-bold text-potenciarte-dark">Tus Matches</h1>
-                        <p className="text-gray-600">¡Comienza una conversación!</p>
+                <div className="p-4 space-y-2">
+                    <h2 className="text-xl font-display font-bold mb-4 text-brand-dark">Tus Conexiones</h2>
+                    {matches.map(match => (
+                        <div 
+                            key={match.id} 
+                            onClick={() => onOpenChat(match)}
+                            className="flex items-center p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                        >
+                            <div className="relative">
+                                <img src={match.photo} className="w-12 h-12 rounded-full bg-gray-100 object-cover" />
+                                <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+                            </div>
+                            <div className="ml-3 flex-1">
+                                <h3 className="font-bold text-brand-dark">{match.name}</h3>
+                                <p className="text-xs text-gray-500 truncate">¡Han hecho match! Di hola 👋</p>
+                            </div>
+                            <ArrowRight size={16} className="text-gray-300" />
+                        </div>
+                    ))}
+                    <div className="mt-8 p-4 bg-orange-50 rounded-lg text-center">
+                        <p className="text-xs text-orange-600 flex items-center justify-center gap-1">
+                            <Shield size={12} /> Los chats se borrarán al final del evento.
+                        </p>
                     </div>
-                    <ul className="flex-grow overflow-y-auto divide-y divide-gray-200">
-                        {matches.map(user => (
-                            <li 
-                                key={user.id} 
-                                onClick={() => handleViewChat(user)}
-                                className="flex items-center p-4 bg-white hover:bg-gray-50 transition-colors cursor-pointer"
-                            >
-                                <img src={user.profilePic} alt={user.name} className="w-14 h-14 rounded-full object-cover mr-4" />
-                                <div className="flex-grow">
-                                    <h3 className="text-lg font-semibold text-potenciarte-dark">{user.name}</h3>
-                                    {/* REQ 2: Mostrar Bio en lugar de Cargo */}
-                                    <p className="text-gray-600 text-sm truncate">{user.bio}</p>
-                                </div>
-                            </li>
-                        ))}
-                    </ul>
                 </div>
             );
         };
 
-        // --- Vista C: Chat ---
-        const ChatView = () => {
-            const { chattingWithUser, currentUser, messages, handleBackFromChat, handleSendMessage } = useContext(AppContext);
-            const [newMessage, setNewMessage] = useState('');
-            const chatEndRef = React.useRef(null);
+        // 8. Vista de Chat Individual
+        const ActiveChat = ({ match, onClose, myId }) => {
+            const [text, setText] = useState('');
+            // Mensajes mockeados que se resetean al recargar, idealmente irían en estado global
+            const [msgs, setMsgs] = useState([
+                { sender: 'system', text: `¡Es un match con ${match.name}! Ambos buscan "${INTENTIONS.find(i => i.id === match.intention)?.label}".` }
+            ]);
 
-            const userMessages = messages[chattingWithUser.id] || [];
-
-            const handleSubmit = (e) => {
+            const handleSend = (e) => {
                 e.preventDefault();
-                handleSendMessage(newMessage);
-                setNewMessage('');
+                if(!text.trim()) return;
+                setMsgs([...msgs, { sender: myId, text }]);
+                setText('');
+                // Simular respuesta
+                setTimeout(() => {
+                    setMsgs(prev => [...prev, { sender: match.id, text: '¡Hola! ¿Qué tal la fiesta? 😊' }]);
+                }, 2000);
             };
 
-            useEffect(() => {
-                chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-            }, [userMessages]);
-
             return (
-                <div className="flex flex-col h-full bg-potenciarte-light">
-                    <header className="flex-shrink-0 flex items-center p-4 bg-white border-b border-gray-200 shadow-sm">
-                        <button onClick={handleBackFromChat} className="text-potenciarte-primary mr-3 p-2 rounded-full hover:bg-orange-100">
-                            {/* Icono reemplazado por texto */}
-                            <span className="text-2xl font-bold">&larr;</span>
-                        </button>
-                        <img src={chattingWithUser.profilePic} alt={chattingWithUser.name} className="w-10 h-10 rounded-full object-cover mr-3" />
-                        <div>
-                            <h2 className="text-lg font-bold text-potenciarte-dark">{chattingWithUser.name}</h2>
-                            <p className="text-sm text-gray-500">En línea</p>
+                <div className="flex flex-col h-full bg-white">
+                    <div className="p-4 border-b flex items-center bg-white shadow-sm z-10">
+                        <button onClick={onClose} className="mr-3 text-gray-500"><ArrowRight className="rotate-180" /></button>
+                        <img src={match.photo} className="w-10 h-10 rounded-full bg-gray-100" />
+                        <div className="ml-3">
+                            <h3 className="font-bold text-brand-dark text-sm">{match.name}</h3>
+                            <span className="text-xs text-green-500 font-medium">En línea en la fiesta</span>
                         </div>
-                    </header>
+                    </div>
                     
-                    <div className="flex-grow overflow-y-auto p-4 space-y-4">
-                        {userMessages.map(msg => {
-                            const isMe = msg.sender === currentUser.id;
-                            return (
-                                <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl shadow ${
-                                        isMe 
-                                        ? 'bg-potenciarte-primary text-white rounded-br-lg' 
-                                        : 'bg-white text-potenciarte-dark rounded-bl-lg'
-                                    }`}>
-                                        <p>{msg.text}</p>
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+                        {msgs.map((m, i) => (
+                            <div key={i} className={`flex ${m.sender === myId ? 'justify-end' : (m.sender === 'system' ? 'justify-center' : 'justify-start')}`}>
+                                {m.sender === 'system' ? (
+                                    <span className="text-xs bg-gray-200 text-gray-500 px-2 py-1 rounded-full">{m.text}</span>
+                                ) : (
+                                    <div className={`max-w-[75%] px-4 py-2 rounded-2xl text-sm shadow-sm ${m.sender === myId ? 'bg-brand-orange text-white rounded-br-sm' : 'bg-white text-gray-800 rounded-bl-sm border'}`}>
+                                        {m.text}
                                     </div>
-                                </div>
-                            );
-                        })}
-                        <div ref={chatEndRef} />
+                                )}
+                            </div>
+                        ))}
                     </div>
 
-                    <form onSubmit={handleSubmit} className="flex-shrink-0 flex items-center p-3 bg-white border-t border-gray-200">
-                        <input
-                            type="text"
-                            value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
+                    <form onSubmit={handleSend} className="p-3 border-t flex gap-2 bg-white">
+                        <input 
+                            className="flex-1 bg-gray-100 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange"
                             placeholder="Escribe un mensaje..."
-                            className="flex-grow p-3 bg-gray-100 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-potenciarte-primary"
+                            value={text}
+                            onChange={e => setText(e.target.value)}
                         />
-                        <button type="submit" className="ml-3 p-3 bg-potenciarte-primary text-white rounded-full hover:bg-orange-600 transition-colors">
-                            {/* Icono reemplazado por texto */}
-                            <span className="text-xl font-bold">&rarr;</span>
+                        <button type="submit" className="bg-brand-orange text-white p-2 rounded-full shadow-md hover:bg-orange-600">
+                            <Send size={18} />
                         </button>
                     </form>
                 </div>
             );
         };
 
-        // --- PANTALLA 4: FIN DEL EVENTO ---
-        const EventEndScreen = () => {
-            return (
-                <div className="flex flex-col items-center justify-center h-full text-center p-10 bg-white">
-                    {/* Icono reemplazado por emoji */}
-                    <span className="text-7xl mb-6">&#x1F4C5;</span> {/* 🗓️ */}
-                    <h1 className="text-4xl font-bold text-potenciarte-dark mb-4">¡El evento ha finalizado!</h1>
-                    <p className="text-lg text-gray-600 leading-relaxed">
-                        Gracias por participar en el Evento INAD y usar la app de networking de Potenciarte.
-                    </p>
-                    <p className="text-lg text-gray-600 leading-relaxed mt-4">
-                        Por motivos de privacidad y según nuestros términos de servicio, todos los chats y matches han sido eliminados permanentemente.
-                    </p>
-                    <p className="text-lg text-gray-600 leading-relaxed mt-4">
-                        ¡Esperamos verte en el próximo evento!
-                    </p>
-                </div>
-            );
-        };
+        // --- APP PRINCIPAL ---
 
-        // --- MODAL: ¡ES UN MATCH! ---
-        const MatchModal = () => {
-            const { showMatchModal, currentUser, handleCloseMatchModal, handleGoToChatFromModal } = useContext(AppContext);
-            
-            if (!showMatchModal) return null;
+        const App = () => {
+            const [users, setUsers] = useState(INITIAL_USERS);
+            const [currentUser, setCurrentUser] = useState(null);
+            const [view, setView] = useState('login'); // login, payment, setup, app, admin
+            const [tab, setTab] = useState('swipe'); // swipe, chats, profile
+            const [matches, setMatches] = useState([]);
+            const [announcement, setAnnouncement] = useState('');
+            const [activeChatUser, setActiveChatUser] = useState(null);
+            const [showMatchPopup, setShowMatchPopup] = useState(null); // Stores user object if matched
 
-            return (
-                <div className="absolute inset-0 bg-black bg-opacity-75 flex flex-col items-center justify-center p-6 z-50">
-                    <div className="bg-white rounded-2xl p-8 text-center shadow-2xl animate-pulse-once" style={{ animation: 'scale-in 0.3s ease-out' }}>
-                        <h1 className="text-5xl font-bold text-potenciarte-primary mb-6" style={{ fontFamily: "'Brush Script MT', cursive", transform: 'rotate(-5deg)' }}>
-                            ¡Es un Match!
-                        </h1>
-                        <p className="text-gray-600 text-lg mb-6">Tú y {showMatchModal.name} se han gustado mutuamente.</p>
-                        
-                        <div className="flex items-center justify-center space-x-4 mb-8">
-                            <img src={currentUser.profilePic} alt={currentUser.name} className="w-28 h-28 rounded-full object-cover border-4 border-white shadow-lg" />
-                            {/* BUG FIX: Corregido showMatchGModal -> showMatchModal */}
-                            <img src={showMatchModal.profilePic} alt={showMatchModal.name} className="w-28 h-28 rounded-full object-cover border-4 border-white shadow-lg" />
-                        </div>
-                        
-                        <div className="flex flex-col space-y-3">
-                            <button
-                                onClick={handleGoToChatFromModal}
-                                className="w-full bg-potenciarte-primary text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-orange-600 transition duration-300"
+            // Filtrar perfiles para el stack
+            const profileStack = useMemo(() => {
+                if (!currentUser) return [];
+                return users.filter(u => {
+                    if (u.id === currentUser.id) return false; // No yo mismo
+                    if (u.isAdmin) return false; // No admins
+                    if (!u.paid || !u.bio) return false; // Solo perfiles completos
+                    
+                    // Lógica de género
+                    const genderMatch = currentUser.interestedIn === 'Todos' || currentUser.interestedIn + 's' === u.identity + 's' || (currentUser.interestedIn === 'Hombres' && u.identity === 'Hombre') || (currentUser.interestedIn === 'Mujeres' && u.identity === 'Mujer');
+                    
+                    // Lógica inversa (yo debo gustarle a ellos también según sus prefs)
+                    const reverseMatch = u.interestedIn === 'Todos' || (u.interestedIn === 'Hombres' && currentUser.identity === 'Hombre') || (u.interestedIn === 'Mujeres' && currentUser.identity === 'Mujer');
+
+                    // No mostrar si ya hice match (en una app real guardariamos dislikes también)
+                    const alreadyMatched = matches.find(m => m.id === u.id);
+
+                    return genderMatch && reverseMatch && !alreadyMatched;
+                });
+            }, [users, currentUser, matches]);
+
+            const handleLogin = (email) => {
+                const existing = users.find(u => u.email === email);
+                if (existing) {
+                    setCurrentUser(existing);
+                    if (existing.role === 'admin') {
+                        setView('admin');
+                    } else if (!existing.paid) {
+                        setView('payment');
+                    } else if (!existing.bio) {
+                        setView('setup');
+                    } else {
+                        setView('app');
+                    }
+                } else {
+                    // Crear usuario temporal nuevo
+                    const newUser = { 
+                        id: `u${Date.now()}`, 
+                        email, 
+                        paid: false, 
+                        name: '', 
+                        isAdmin: false,
+                        role: 'user' 
+                    };
+                    setUsers([...users, newUser]);
+                    setCurrentUser(newUser);
+                    setView('payment');
+                }
+            };
+
+            const handlePaymentComplete = () => {
+                const updated = { ...currentUser, paid: true };
+                setCurrentUser(updated);
+                setUsers(users.map(u => u.id === currentUser.id ? updated : u));
+                setView('setup');
+            };
+
+            const handleProfileSave = (fullProfile) => {
+                setCurrentUser(fullProfile);
+                setUsers(users.map(u => u.id === currentUser.id ? fullProfile : u));
+                setView('app');
+            };
+
+            const handleSwipe = (dir, profile) => {
+                if (dir === 'right') {
+                    // Simular match instantáneo para demo (50% prob) o si es un usuario específico
+                    const isMatch = Math.random() > 0.5; 
+                    
+                    if (isMatch) {
+                        setMatches([...matches, profile]);
+                        setShowMatchPopup(profile);
+                    }
+                }
+                // Remover visualmente se maneja en SwipeDeck, aquí actualizamos estado si fuera necesario persistir dislikes
+            };
+
+            // Modal de Match
+            const MatchPopup = () => {
+                if (!showMatchPopup) return null;
+                return (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6 backdrop-blur-sm">
+                        <div className="bg-white rounded-3xl p-6 text-center w-full max-w-sm animate-bounce-short">
+                            <div className="flex justify-center -space-x-6 mb-4">
+                                <img src={currentUser.photo} className="w-20 h-20 rounded-full border-4 border-white" />
+                                <img src={showMatchPopup.photo} className="w-20 h-20 rounded-full border-4 border-white" />
+                            </div>
+                            <h2 className="text-4xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-orange to-pink-500 mb-2">¡Es un Match!</h2>
+                            <p className="text-gray-500 mb-6">A {showMatchPopup.name} también le interesas.</p>
+                            
+                            <button 
+                                onClick={() => {
+                                    setActiveChatUser(showMatchPopup);
+                                    setTab('chats');
+                                    setShowMatchPopup(null);
+                                }}
+                                className="w-full bg-brand-orange text-white font-bold py-3 rounded-xl mb-3 shadow-lg"
                             >
                                 Enviar Mensaje
                             </button>
-                            <button
-                                onClick={handleCloseMatchModal}
-                                className="w-full bg-transparent text-gray-600 font-semibold py-3 px-6 rounded-lg hover:bg-gray-100 transition duration-300"
+                            <button 
+                                onClick={() => setShowMatchPopup(null)}
+                                className="w-full text-gray-400 font-semibold py-2"
                             >
-                                Seguir Buscando
+                                Seguir jugando
                             </button>
                         </div>
                     </div>
-                </div>
-            );
-        };
-
-        // --- Componente Principal (Router) ---
-        const AppContent = () => {
-            const { view, appView } = useContext(AppContext);
-
-            let content;
-            if (view === 'login') {
-                content = <LoginScreen />;
-            } else if (view === 'payment') {
-                content = <PaymentScreen />;
-            // REQ 1: Añadir ruta para la nueva pantalla
-            } else if (view === 'profile-setup') {
-                content = <ProfileSetupScreen />;
-            } else if (view === 'event-end') {
-                content = <EventEndScreen />;
-            } else if (view === 'app') {
-                content = (
-                    <div className="flex flex-col h-full">
-                        <AppHeader />
-                        <main className="flex-grow overflow-hidden relative">
-                            {appView === 'networking' && <NetworkingView />}
-                            {appView === 'matches' && <MatchesView />}
-                            {appView === 'chat' && <ChatView />}
-                        </main>
-                        {appView !== 'chat' && <AppNavBar />}
-                    </div>
                 );
-            }
+            };
 
+            // Renderizado Principal
             return (
-                <div className="max-w-md mx-auto bg-white shadow-2xl rounded-lg overflow-hidden relative md:my-8" 
-                     style={{ height: 'calc(100vh - 4rem)', minHeight: '600px', maxHeight: '900px' }}>
-                    {content}
-                    <MatchModal />
+                <div className="w-full h-screen bg-gray-200 flex justify-center items-center font-sans">
+                    <div className="w-full max-w-md h-full md:h-[90vh] md:rounded-3xl bg-white shadow-2xl overflow-hidden relative flex flex-col">
+                        
+                        {/* Banner Global */}
+                        {view !== 'login' && <AnnouncementBanner message={announcement} />}
+
+                        {/* Rutas */}
+                        {view === 'login' && <LoginScreen onLogin={handleLogin} />}
+                        {view === 'payment' && <PaymentScreen onComplete={handlePaymentComplete} />}
+                        {view === 'setup' && <ProfileSetup user={currentUser} onSave={handleProfileSave} />}
+                        
+                        {view === 'admin' && (
+                            <AdminDashboard 
+                                users={users} 
+                                totalMatches={matches.length * 2 + 54} // Fake data added to real
+                                activeAnnouncement={announcement}
+                                onPostAnnouncement={setAnnouncement} 
+                                onLogout={() => { setView('login'); setCurrentUser(null); }}
+                            />
+                        )}
+
+                        {view === 'app' && (
+                            <>
+                                {/* Header App */}
+                                {activeChatUser ? null : (
+                                    <header className="p-4 flex justify-between items-center bg-white">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-8 h-8 rounded-full bg-brand-orange flex items-center justify-center text-white">
+                                                <Zap size={18} fill="currentColor" />
+                                            </div>
+                                            <span className="font-display font-bold text-xl text-brand-dark">Potenciarte</span>
+                                        </div>
+                                        <div className="w-8 h-8 rounded-full overflow-hidden border border-gray-200">
+                                            <img src={currentUser?.photo} alt="Me" />
+                                        </div>
+                                    </header>
+                                )}
+
+                                {/* Contenido Principal */}
+                                <main className="flex-1 overflow-hidden relative bg-gray-50">
+                                    {activeChatUser ? (
+                                        <ActiveChat 
+                                            match={activeChatUser} 
+                                            myId={currentUser.id} 
+                                            onClose={() => setActiveChatUser(null)} 
+                                        />
+                                    ) : (
+                                        <>
+                                            {tab === 'swipe' && <SwipeDeck profiles={profileStack} onSwipe={handleSwipe} />}
+                                            {tab === 'chats' && <ChatList matches={matches} onOpenChat={setActiveChatUser} />}
+                                            {tab === 'profile' && (
+                                                <div className="p-6 text-center">
+                                                    <img src={currentUser.photo} className="w-32 h-32 mx-auto rounded-full mb-4 bg-blue-100" />
+                                                    <h2 className="text-2xl font-bold text-brand-dark">{currentUser.name}</h2>
+                                                    <p className="text-brand-orange mb-6 font-medium">{currentUser.job}</p>
+                                                    <div className="bg-white p-4 rounded-xl shadow-sm text-left mb-4">
+                                                        <h3 className="text-xs font-bold text-gray-400 uppercase mb-2">Bio</h3>
+                                                        <p className="text-gray-600">{currentUser.bio}</p>
+                                                    </div>
+                                                    <button onClick={() => setView('login')} className="text-red-400 font-bold text-sm mt-4 flex items-center justify-center gap-2 mx-auto">
+                                                        <LogOut size={16}/> Cerrar Sesión
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </main>
+
+                                {/* Bottom Nav */}
+                                {!activeChatUser && (
+                                    <nav className="bg-white border-t border-gray-100 p-2 flex justify-around items-center pb-safe">
+                                        <button 
+                                            onClick={() => setTab('swipe')}
+                                            className={`p-3 rounded-xl transition-all ${tab === 'swipe' ? 'text-brand-orange bg-orange-50' : 'text-gray-400'}`}
+                                        >
+                                            <Sparkles size={24} />
+                                        </button>
+                                        <button 
+                                            onClick={() => setTab('chats')}
+                                            className={`p-3 rounded-xl transition-all relative ${tab === 'chats' ? 'text-brand-purple bg-purple-50' : 'text-gray-400'}`}
+                                        >
+                                            <MessageCircle size={24} />
+                                            {matches.length > 0 && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></span>}
+                                        </button>
+                                        <button 
+                                            onClick={() => setTab('profile')}
+                                            className={`p-3 rounded-xl transition-all ${tab === 'profile' ? 'text-gray-800 bg-gray-100' : 'text-gray-400'}`}
+                                        >
+                                            <User size={24} />
+                                        </button>
+                                    </nav>
+                                )}
+
+                                {/* Popups */}
+                                <MatchPopup />
+                            </>
+                        )}
+                    </div>
                 </div>
             );
         };
-        
-        // --- Aplicación Raíz ---
-        const App = () => (
-            <AppProvider>
-                <AppContent />
-            </AppProvider>
-        );
 
-        // --- Montar la App en el DOM ---
-        const root = createRoot(document.getElementById('root'));
+        const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
-
     </script>
-
 </body>
 </html>
